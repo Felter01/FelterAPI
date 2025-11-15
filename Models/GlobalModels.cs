@@ -30,13 +30,6 @@ public class UserOrgRole
     public DateTime CreatedAt { get; set; }
 }
 
-public class GlobalModule
-{
-    public string Key { get; set; } = default!;
-    public string Name { get; set; } = default!;
-    public string? Description { get; set; }
-}
-
 public class OrgModule
 {
     public Guid Id { get; set; }
