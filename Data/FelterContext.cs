@@ -53,15 +53,6 @@ public class FelterContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        // Configurar todas as propriedades para usar aspas duplas (case-sensitive)
-        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
-        {
-            foreach (var property in entityType.GetProperties())
-            {
-                property.SetColumnName($"\"{property.GetColumnName()}\"");
-            }
-        }
-
         // Schema Global
         modelBuilder.Entity<GlobalUser>().ToTable("users", "schema_global");
         modelBuilder.Entity<Organization>().ToTable("organizations", "schema_global");

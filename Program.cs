@@ -13,7 +13,9 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
 
 builder.Services.AddDbContext<FelterContext>(options =>
-    options.UseNpgsql(connectionString));
+    options
+        .UseNpgsql(connectionString)
+        .UseSnakeCaseNamingConvention());
 
 builder.Services.AddScoped<FirebaseDynamicService>();
 
