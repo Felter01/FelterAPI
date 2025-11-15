@@ -1,9 +1,34 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace FelterAPI.Models
 {
     public class GlobalModule
     {
-        public string Key { get; set; } = default!;
-        public string Name { get; set; } = default!;
-        public string? Description { get; set; }
+        /// <summary>
+        /// Chave única do módulo (PRIMARY KEY)
+        /// Ex: "produtos", "blog", "cardapio"
+        /// </summary>
+        [Column("key")]
+        public string Key { get; set; }
+
+        /// Nome exibido no painel
+        [Column("name")]
+        public string Name { get; set; }
+
+        /// Descrição amigável
+        [Column("description")]
+        public string Description { get; set; }
+
+        /// Se está ativo globalmente
+        [Column("active")]
+        public bool Active { get; set; } = true;
+
+        /// Data de criação
+        [Column("created_at")]
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        /// Data de atualização
+        [Column("updated_at")]
+        public DateTime? UpdatedAt { get; set; }
     }
 }
