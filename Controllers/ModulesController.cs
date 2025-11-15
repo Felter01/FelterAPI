@@ -24,7 +24,7 @@ namespace FelterAPI.Controllers
         {
             var list = await _ctx.GlobalModules
                 .AsNoTracking()
-                .OrderBy(m => m.DisplayName)
+                .OrderBy(m => m.Name)
                 .ToListAsync();
 
             return Ok(list);
@@ -53,8 +53,6 @@ namespace FelterAPI.Controllers
             if (await _ctx.GlobalModules.AnyAsync(x => x.Key == model.Key))
                 return BadRequest(new { message = "Já existe um módulo com essa key." });
 
-            model.CreatedAt = DateTime.UtcNow;
-
             _ctx.GlobalModules.Add(model);
             await _ctx.SaveChangesAsync();
 
@@ -72,10 +70,8 @@ namespace FelterAPI.Controllers
             if (module == null)
                 return NotFound(new { message = "Módulo não encontrado." });
 
-            module.DisplayName = req.DisplayName;
+            module.Name = req.Name;
             module.Description = req.Description;
-            module.Active = req.Active;
-            module.UpdatedAt = DateTime.UtcNow;
 
             await _ctx.SaveChangesAsync();
 
