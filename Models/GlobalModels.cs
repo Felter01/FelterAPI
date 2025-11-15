@@ -32,8 +32,6 @@ public class UserOrgRole
 
 public class GlobalModule
 {
-    public Guid Id { get; set; }
-
     public string Key { get; set; } = default!;
     public string Name { get; set; } = default!;
     public string? Description { get; set; }

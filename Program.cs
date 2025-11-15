@@ -1,5 +1,6 @@
 using System.Text;
 using FelterAPI.Data;
+using FelterAPI.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -13,6 +14,8 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 
 builder.Services.AddDbContext<FelterContext>(options =>
     options.UseNpgsql(connectionString));
+
+builder.Services.AddScoped<FirebaseDynamicService>();
 
 // ---------------- Controllers + Swagger ----------------
 builder.Services.AddControllers();

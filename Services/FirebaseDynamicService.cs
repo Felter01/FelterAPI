@@ -1,4 +1,4 @@
-using System.Text.Json;
+
 using FelterAPI.Data;
 using FelterAPI.Models;
 using Google.Apis.Auth.OAuth2;
@@ -28,7 +28,6 @@ public class FirebaseDynamicService
         }
     }
 
-    /// 🔥 FUNÇÃO SEGURA → Não explode se não tiver config no banco
     private async Task<(EcommerceClient client, EcommerceDbConfig config)?> GetClientConfigAsync(Guid clientId)
     {
         try
@@ -38,7 +37,7 @@ public class FirebaseDynamicService
 
             if (client == null)
             {
-                _logger.LogWarning("❌ EcommerceClient não encontrado: {ClientId}", clientId);
+                _logger.LogWarning("EcommerceClient não encontrado: {ClientId}", clientId);
                 return null;
             }
 
@@ -47,7 +46,7 @@ public class FirebaseDynamicService
 
             if (cfg == null)
             {
-                _logger.LogWarning("❌ EcommerceDbConfig não encontrado para clientId {ClientId}", clientId);
+                _logger.LogWarning("EcommerceDbConfig não encontrado para clientId {ClientId}", clientId);
                 return null;
             }
 
@@ -55,12 +54,11 @@ public class FirebaseDynamicService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "❌ ERRO GRAVE ao carregar config do cliente {ClientId}", clientId);
+            _logger.LogError(ex, "Erro ao carregar config do cliente {ClientId}", clientId);
             return null;
         }
     }
 
-    /// 🔥 FUNÇÃO BLINDADA → NÃO quebra startup e NÃO quebra Swagger
     public async Task<FirestoreDb?> GetFirestoreForClientAsync(Guid clientId)
     {
         try
@@ -81,13 +79,13 @@ public class FirebaseDynamicService
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "❌ FirebaseJson inválido para clientId {ClientId}", clientId);
-                    return null; // Não trava a API
+                    _logger.LogError(ex, "FirebaseJson inválido para clientId {ClientId}", clientId);
+                    return null;
                 }
             }
             else
             {
-                _logger.LogWarning("⚠ Nenhum FirebaseJson encontrado, usando credencial padrão.");
+                _logger.LogWarning("FirebaseJson vazio para clientId {ClientId}. Usando credencial padrão.", clientId);
                 credential = await GoogleCredential.GetApplicationDefaultAsync();
             }
 
@@ -96,23 +94,28 @@ public class FirebaseDynamicService
                 Credential = credential
             }.BuildAsync();
 
+            if (string.IsNullOrWhiteSpace(client.FirebaseProjectId))
+            {
+                _logger.LogError("FirebaseProjectId vazio para clientId {ClientId}", clientId);
+                return null;
+            }
+
             var db = FirestoreDb.Create(client.FirebaseProjectId, firestoreClient);
             return db;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "❌ Erro ao criar FirestoreDb para Client {ClientId}", clientId);
-            return null; // NÃO DERRUBA API
+            _logger.LogError(ex, "Erro ao criar FirestoreDb para Client {ClientId}", clientId);
+            return null;
         }
     }
 
-    /// 🔥 NÃO quebra API mesmo se cliente estiver sem collections
     public async Task EnsureBaseCollectionsAsync(Guid clientId)
     {
         var db = await GetFirestoreForClientAsync(clientId);
         if (db == null)
         {
-            _logger.LogWarning("⚠ Firestore nulo para clientId {ClientId}", clientId);
+            _logger.LogWarning("Firestore nulo para clientId {ClientId}", clientId);
             return;
         }
 
@@ -132,7 +135,8 @@ public class FirebaseDynamicService
 
                 if (!snap.Exists)
                 {
-                    await docRef.SetAsync(new {
+                    await docRef.SetAsync(new
+                    {
                         createdAt = DateTime.UtcNow,
                         system = "Felter E-Commerce"
                     });
@@ -145,8 +149,7 @@ public class FirebaseDynamicService
         }
     }
 
-    /// 🔥 Upsert protegido
-    public async Task<bool> UpsertDocumentAsync(Guid clientId, string collection, string docId, IDictionary<string, object> data)
+    public async Task<bool> UpsertDocumentAsync(Guid clientId, string collection, string documentId, IDictionary<string, object> data)
     {
         var db = await GetFirestoreForClientAsync(clientId);
         if (db == null)
@@ -154,17 +157,16 @@ public class FirebaseDynamicService
 
         try
         {
-            await db.Collection(collection).Document(docId).SetAsync(data);
+            await db.Collection(collection).Document(documentId).SetAsync(data);
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Erro ao salvar documento {Doc} em {Col} para {ClientId}", docId, collection, clientId);
+            _logger.LogError(ex, "Erro ao salvar documento {Doc} em {Col} para {ClientId}", documentId, collection, clientId);
             return false;
         }
     }
 
-    /// 🔥 Leitura protegida
     public async Task<IReadOnlyList<Dictionary<string, object>>> GetAllDocumentsAsync(Guid clientId, string collection)
     {
         var db = await GetFirestoreForClientAsync(clientId);
