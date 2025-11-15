@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Dependências do seu projeto -->
+    <!-- Dependências padrão -->
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.0">
       <PrivateAssets>all</PrivateAssets>
@@ -17,12 +17,12 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="8.0.0" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.0" />
 
-    <!-- Pacotes obrigatórios p/ FirebaseDynamicService -->
-    <PackageReference Include="Google.Apis.Auth" Version="1.65.0" />
+    <!-- Dependências obrigatórias do FirebaseDynamicService -->
+    <PackageReference Include="Google.Apis.Auth" Version="1.67.0" />
     <PackageReference Include="Google.Cloud.Firestore" Version="3.7.0" />
     <PackageReference Include="Google.Cloud.Firestore.V1" Version="3.7.0" />
 
-    <!-- Outros pacotes que já tinha -->
+    <!-- Seu Swagger e JWT -->
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" />
   </ItemGroup>
