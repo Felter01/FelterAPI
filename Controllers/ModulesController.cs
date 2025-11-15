@@ -24,7 +24,7 @@ namespace FelterAPI.Controllers
         {
             var list = await _ctx.GlobalModules
                 .AsNoTracking()
-                .OrderBy(m => m.DisplayName)
+                .OrderBy(m => m.Name)
                 .ToListAsync();
 
             return Ok(list);
@@ -72,7 +72,7 @@ namespace FelterAPI.Controllers
             if (module == null)
                 return NotFound(new { message = "Módulo não encontrado." });
 
-            module.DisplayName = req.DisplayName;
+            module.Name = req.Name;
             module.Description = req.Description;
             module.Active = req.Active;
             module.UpdatedAt = DateTime.UtcNow;
