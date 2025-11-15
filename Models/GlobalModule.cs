@@ -9,15 +9,15 @@ namespace FelterAPI.Models
         /// Ex: "produtos", "blog", "cardapio"
         /// </summary>
         [Column("key")]
-        public string Key { get; set; }
+        public string Key { get; set; } = default!;
 
         /// Nome exibido no painel
         [Column("name")]
-        public string Name { get; set; }
+        public string Name { get; set; } = default!;
 
         /// Descrição amigável
         [Column("description")]
-        public string Description { get; set; }
+        public string Description { get; set; } = default!;
 
         /// Se está ativo globalmente
         [Column("active")]
