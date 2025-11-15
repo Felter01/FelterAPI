@@ -41,7 +41,10 @@ public class EcommerceModule
     public Guid Id { get; set; }
     public Guid ClientId { get; set; }
     public string? Key { get; set; }
+    public string? Name { get; set; }
     public bool Enabled { get; set; } = true;
+    public bool IsEnabled { get; set; } = true;
+    public DateTime CreatedAt { get; set; }
 }
 
 public class EcommerceDbConfig
@@ -50,4 +53,5 @@ public class EcommerceDbConfig
     public Guid ClientId { get; set; }
     public string? FirebaseJson { get; set; }
     public string? Status { get; set; }
+    public DateTime CreatedAt { get; set; }
 }
