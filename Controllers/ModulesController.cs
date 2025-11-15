@@ -1,66 +1,102 @@
-using FelterAPI.Data;
-using FelterAPI.Models;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using FelterAPI.Data;
+using FelterAPI.Models;
 
-namespace FelterAPI.Controllers;
-
-[ApiController]
-[Route("api/global/modules")]
-[Authorize]
-public class ModulesController : ControllerBase
+namespace FelterAPI.Controllers
 {
-    private readonly FelterContext _ctx;
-
-    public ModulesController(FelterContext ctx)
+    [Route("api/[controller]")]
+    [ApiController]
+    public class ModulesController : ControllerBase
     {
-        _ctx = ctx;
-    }
+        private readonly FelterContext _ctx;
 
-    [HttpGet]
-    public async Task<IActionResult> GetAll()
-    {
-        return Ok(await _ctx.GlobalModules.AsNoTracking().ToListAsync());
-    }
+        public ModulesController(FelterContext ctx)
+        {
+            _ctx = ctx;
+        }
 
-    [HttpGet("{id:guid}")]
-    public async Task<IActionResult> GetById(Guid id)
-    {
-        var entity = await _ctx.GlobalModules.FindAsync(id);
-        if (entity == null) return NotFound();
-        return Ok(entity);
-    }
+        // ==========================================
+        // GET: Listar todos os módulos
+        // ==========================================
+        [HttpGet]
+        public async Task<IActionResult> GetAll()
+        {
+            var list = await _ctx.GlobalModules
+                .AsNoTracking()
+                .OrderBy(m => m.DisplayName)
+                .ToListAsync();
 
-    [HttpPost]
-    public async Task<IActionResult> Create([FromBody] GlobalModule model)
-    {
-        model.Id = Guid.NewGuid();
-        _ctx.GlobalModules.Add(model);
-        await _ctx.SaveChangesAsync();
-        return CreatedAtAction(nameof(GetById), new { id = model.Id }, model);
-    }
+            return Ok(list);
+        }
 
-    [HttpPut("{id:guid}")]
-    public async Task<IActionResult> Update(Guid id, [FromBody] GlobalModule model)
-    {
-        var existing = await _ctx.GlobalModules.FindAsync(id);
-        if (existing == null) return NotFound();
+        // ==========================================
+        // GET: Buscar módulo por KEY
+        // ==========================================
+        [HttpGet("{key}")]
+        public async Task<IActionResult> GetByKey(string key)
+        {
+            var module = await _ctx.GlobalModules.FindAsync(key);
 
-        _ctx.Entry(existing).CurrentValues.SetValues(model);
-        existing.Id = id;
-        await _ctx.SaveChangesAsync();
-        return Ok(existing);
-    }
+            if (module == null)
+                return NotFound(new { message = "Módulo não encontrado." });
 
-    [HttpDelete("{id:guid}")]
-    public async Task<IActionResult> Delete(Guid id)
-    {
-        var existing = await _ctx.GlobalModules.FindAsync(id);
-        if (existing == null) return NotFound();
+            return Ok(module);
+        }
 
-        _ctx.GlobalModules.Remove(existing);
-        await _ctx.SaveChangesAsync();
-        return NoContent();
+        // ==========================================
+        // POST: Criar módulo
+        // ==========================================
+        [HttpPost]
+        public async Task<IActionResult> Create(GlobalModule model)
+        {
+            if (await _ctx.GlobalModules.AnyAsync(x => x.Key == model.Key))
+                return BadRequest(new { message = "Já existe um módulo com essa key." });
+
+            model.CreatedAt = DateTime.UtcNow;
+
+            _ctx.GlobalModules.Add(model);
+            await _ctx.SaveChangesAsync();
+
+            return Ok(model);
+        }
+
+        // ==========================================
+        // PUT: Atualizar módulo
+        // ==========================================
+        [HttpPut("{key}")]
+        public async Task<IActionResult> Update(string key, GlobalModule req)
+        {
+            var module = await _ctx.GlobalModules.FindAsync(key);
+
+            if (module == null)
+                return NotFound(new { message = "Módulo não encontrado." });
+
+            module.DisplayName = req.DisplayName;
+            module.Description = req.Description;
+            module.Active = req.Active;
+            module.UpdatedAt = DateTime.UtcNow;
+
+            await _ctx.SaveChangesAsync();
+
+            return Ok(module);
+        }
+
+        // ==========================================
+        // DELETE: Remover módulo
+        // ==========================================
+        [HttpDelete("{key}")]
+        public async Task<IActionResult> Delete(string key)
+        {
+            var module = await _ctx.GlobalModules.FindAsync(key);
+
+            if (module == null)
+                return NotFound(new { message = "Módulo não encontrado." });
+
+            _ctx.GlobalModules.Remove(module);
+            await _ctx.SaveChangesAsync();
+
+            return Ok(new { message = "Módulo removido com sucesso." });
+        }
     }
 }
