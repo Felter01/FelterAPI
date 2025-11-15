@@ -5,7 +5,6 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using Npgsql.EntityFrameworkCore.PostgreSQL.NamingConventions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,9 +13,7 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
 
 builder.Services.AddDbContext<FelterContext>(options =>
-    options
-        .UseNpgsql(connectionString)
-        .UseSnakeCaseNamingConvention());
+    options.UseNpgsql(connectionString));
 
 builder.Services.AddScoped<FirebaseDynamicService>();
 
