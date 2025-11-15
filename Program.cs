@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Npgsql.EntityFrameworkCore.PostgreSQL.NamingConventions;
 
 var builder = WebApplication.CreateBuilder(args);
 
