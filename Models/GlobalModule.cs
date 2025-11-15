@@ -6,13 +6,13 @@ namespace FelterAPI.Models
         /// Chave única do módulo (PRIMARY KEY)
         /// Ex: "produtos", "blog", "cardapio"
         /// </summary>
-        public string Key { get; set; }
+        public string Key { get; set; } = default!;
 
         /// Nome exibido no painel
-        public string DisplayName { get; set; }
+        public string Name { get; set; } = default!;
 
         /// Descrição amigável
-        public string Description { get; set; }
+        public string Description { get; set; } = default!;
 
         /// Se está ativo globalmente
         public bool Active { get; set; } = true;
