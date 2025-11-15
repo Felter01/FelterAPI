@@ -4,12 +4,20 @@ public class StockFlowClient
 {
     public Guid Id { get; set; }
     public Guid? MasterId { get; set; }
+
+    // Dados básicos
     public string? Name { get; set; }
     public string? Cnpj { get; set; }
+
+    // Login
     public string? Email { get; set; }
+    public string? Password { get; set; }
+    public bool IsActive { get; set; } = true;
+
     public string? Phone { get; set; }
     public DateTime CreatedAt { get; set; }
 }
+
 
 public class StockFlowEmployee
 {

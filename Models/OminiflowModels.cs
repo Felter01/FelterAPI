@@ -3,10 +3,19 @@ namespace FelterAPI.Models;
 public class OmniFlowClient
 {
     public Guid Id { get; set; }
+
+    // Dados básicos
     public string? Name { get; set; }
     public string? ClientType { get; set; }
+
+    // Login
+    public string? Email { get; set; }
+    public string? Password { get; set; }
+    public bool IsActive { get; set; } = true;
+
     public DateTime CreatedAt { get; set; }
 }
+
 
 public class OmniFlowFacility
 {

@@ -4,8 +4,16 @@ public class EcommerceClient
 {
     public Guid Id { get; set; }
     public Guid? MasterId { get; set; }
+
+    // Dados básicos
     public string? Name { get; set; }
+
+    // Login do cliente (acesso ao dashboard do e-commerce)
     public string? Email { get; set; }
+    public string? Password { get; set; }
+    public bool IsActive { get; set; } = true;
+
+    // Firebase do e-commerce do cliente
     public string? Plan { get; set; }
     public string? FirebaseApiKey { get; set; }
     public string? FirebaseAuthDomain { get; set; }
@@ -13,8 +21,10 @@ public class EcommerceClient
     public string? FirebaseStorageBucket { get; set; }
     public string? FirebaseSenderId { get; set; }
     public string? FirebaseAppId { get; set; }
+
     public DateTime CreatedAt { get; set; }
 }
+
 
 public class EcommerceUser
 {

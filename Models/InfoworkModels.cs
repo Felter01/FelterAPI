@@ -3,13 +3,21 @@ namespace FelterAPI.Models;
 public class InfoWorkClient
 {
     public Guid Id { get; set; }
+
+    // Dados básicos
     public string? Name { get; set; }
     public string? Cnpj { get; set; }
+
+    // Login
     public string? Email { get; set; }
+    public string? Password { get; set; }
+    public bool IsActive { get; set; } = true;
+
     public string? Phone { get; set; }
     public string? Address { get; set; }
     public DateTime CreatedAt { get; set; }
 }
+
 
 public class InfoWorkComputer
 {
