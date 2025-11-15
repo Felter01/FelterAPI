@@ -1,4 +1,3 @@
-
 using System.Text.Json;
 using FelterAPI.Data;
 using FelterAPI.Models;
@@ -9,216 +8,182 @@ using Microsoft.EntityFrameworkCore;
 
 namespace FelterAPI.Services;
 
-/// <summary>
-/// Serviço responsável por conectar dinamicamente no Firestore de cada cliente de e-commerce,
-/// usando as credenciais salvas no banco PostgreSQL (EcommerceClient / EcommerceDbConfig).
-/// </summary>
 public class FirebaseDynamicService
 {
     private readonly FelterContext _ctx;
     private readonly ILogger<FirebaseDynamicService> _logger;
 
-    // Coleções base que o e-commerce do cliente precisa ter no Firestore
-    private static readonly string[] BaseCollections = new[]
-    {
-        "_metadata",
-        "agendamentos",
-        "blog",
-        "cardapio_online",
-        "configuracao",
-        "produtos",
-        "usuarios",
-        "videos",
-        "whatsapp"
-    };
-
     public FirebaseDynamicService(FelterContext ctx, ILogger<FirebaseDynamicService> logger)
     {
         _ctx = ctx;
         _logger = logger;
-    }
-
-    /// <summary>
-    /// Retorna a configuração de banco Firebase (EcommerceDbConfig) + dados do cliente.
-    /// </summary>
-    private async Task<(EcommerceClient client, EcommerceDbConfig config)?> GetClientConfigAsync(Guid clientId, CancellationToken ct = default)
-    {
-        var client = await _ctx.EcommerceClients.AsNoTracking()
-            .FirstOrDefaultAsync(c => c.Id == clientId, ct);
-
-        if (client == null)
-        {
-            _logger.LogWarning("EcommerceClient não encontrado para ClientId {ClientId}", clientId);
-            return null;
-        }
-
-        var cfg = await _ctx.EcommerceDbConfigs.AsNoTracking()
-            .FirstOrDefaultAsync(c => c.ClientId == clientId, ct);
-
-        if (cfg == null)
-        {
-            _logger.LogWarning("EcommerceDbConfig não encontrado para ClientId {ClientId}", clientId);
-            return null;
-        }
-
-        if (string.IsNullOrWhiteSpace(client.FirebaseProjectId))
-        {
-            _logger.LogWarning("Cliente {ClientId} não possui FirebaseProjectId configurado.", clientId);
-            return null;
-        }
-
-        return (client, cfg);
-    }
-
-    /// <summary>
-    /// Cria uma instância de FirestoreDb para o cliente informado, baseada nas credenciais salvas.
-    ///
-    /// ⚠ IMPORTANTE:
-    /// - Se EcommerceDbConfig.FirebaseJson estiver preenchido, ele será tratado como JSON de service account.
-    /// - Caso contrário, o código tentará usar GoogleCredential.GetApplicationDefault()
-    ///   (é necessário configurar a variável de ambiente GOOGLE_APPLICATION_CREDENTIALS no servidor).
-    /// </summary>
-    public async Task<FirestoreDb?> GetFirestoreForClientAsync(Guid clientId, CancellationToken ct = default)
-    {
-        var info = await GetClientConfigAsync(clientId, ct);
-        if (info == null) return null;
-
-        var (client, cfg) = info.Value;
 
         try
         {
+            _logger.LogInformation("🔥 FirebaseDynamicService inicializado.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Erro inicializando FirebaseDynamicService: " + ex);
+        }
+    }
+
+    /// 🔥 FUNÇÃO SEGURA → Não explode se não tiver config no banco
+    private async Task<(EcommerceClient client, EcommerceDbConfig config)?> GetClientConfigAsync(Guid clientId)
+    {
+        try
+        {
+            var client = await _ctx.EcommerceClients.AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Id == clientId);
+
+            if (client == null)
+            {
+                _logger.LogWarning("❌ EcommerceClient não encontrado: {ClientId}", clientId);
+                return null;
+            }
+
+            var cfg = await _ctx.EcommerceDbConfigs.AsNoTracking()
+                .FirstOrDefaultAsync(c => c.ClientId == clientId);
+
+            if (cfg == null)
+            {
+                _logger.LogWarning("❌ EcommerceDbConfig não encontrado para clientId {ClientId}", clientId);
+                return null;
+            }
+
+            return (client, cfg);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ ERRO GRAVE ao carregar config do cliente {ClientId}", clientId);
+            return null;
+        }
+    }
+
+    /// 🔥 FUNÇÃO BLINDADA → NÃO quebra startup e NÃO quebra Swagger
+    public async Task<FirestoreDb?> GetFirestoreForClientAsync(Guid clientId)
+    {
+        try
+        {
+            var result = await GetClientConfigAsync(clientId);
+            if (result == null)
+                return null;
+
+            var (client, cfg) = result.Value;
+
             GoogleCredential credential;
 
             if (!string.IsNullOrWhiteSpace(cfg.FirebaseJson))
             {
-                // FirebaseJson deve conter o JSON completo da service account do projeto Firebase do cliente
-                credential = GoogleCredential.FromJson(cfg.FirebaseJson);
+                try
+                {
+                    credential = GoogleCredential.FromJson(cfg.FirebaseJson);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "❌ FirebaseJson inválido para clientId {ClientId}", clientId);
+                    return null; // Não trava a API
+                }
             }
             else
             {
-                // Fallback: usa credenciais padrão do ambiente
-                credential = await GoogleCredential.GetApplicationDefaultAsync(ct);
+                _logger.LogWarning("⚠ Nenhum FirebaseJson encontrado, usando credencial padrão.");
+                credential = await GoogleCredential.GetApplicationDefaultAsync();
             }
 
-            var firestoreBuilder = new FirestoreClientBuilder
+            var firestoreClient = await new FirestoreClientBuilder
             {
                 Credential = credential
-            };
+            }.BuildAsync();
 
-            var firestoreClient = await firestoreBuilder.BuildAsync(ct);
-
-            var db = FirestoreDb.Create(client.FirebaseProjectId!, firestoreClient);
-            _logger.LogInformation("Conexão Firestore criada para cliente {ClientId} (ProjectId={ProjectId})", clientId, client.FirebaseProjectId);
-
+            var db = FirestoreDb.Create(client.FirebaseProjectId, firestoreClient);
             return db;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Erro ao criar FirestoreDb para cliente {ClientId}", clientId);
-            return null;
+            _logger.LogError(ex, "❌ Erro ao criar FirestoreDb para Client {ClientId}", clientId);
+            return null; // NÃO DERRUBA API
         }
     }
 
-    /// <summary>
-    /// Garante que todas as coleções base do e-commerce existam no Firestore do cliente,
-    /// criando um documento '_init' em cada uma delas, se ainda não existir.
-    /// </summary>
-    public async Task EnsureBaseCollectionsAsync(Guid clientId, CancellationToken ct = default)
+    /// 🔥 NÃO quebra API mesmo se cliente estiver sem collections
+    public async Task EnsureBaseCollectionsAsync(Guid clientId)
     {
-        var db = await GetFirestoreForClientAsync(clientId, ct);
+        var db = await GetFirestoreForClientAsync(clientId);
         if (db == null)
         {
-            _logger.LogWarning("Não foi possível garantir coleções para ClientId {ClientId} porque o FirestoreDb é nulo.", clientId);
+            _logger.LogWarning("⚠ Firestore nulo para clientId {ClientId}", clientId);
             return;
         }
 
-        foreach (var col in BaseCollections)
+        string[] baseCollections =
         {
-            var docRef = db.Collection(col).Document("_init");
+            "_metadata", "agendamentos", "blog",
+            "cardapio_online", "configuracao", "produtos",
+            "usuarios", "videos", "whatsapp"
+        };
 
+        foreach (var col in baseCollections)
+        {
             try
             {
-                var snapshot = await docRef.GetSnapshotAsync(ct);
-                if (!snapshot.Exists)
-                {
-                    var initData = new Dictionary<string, object>
-                    {
-                        ["createdAt"] = DateTime.UtcNow,
-                        ["system"] = "Felter E-commerce",
-                        ["note"] = "Documento inicial criado automaticamente pelo FirebaseDynamicService."
-                    };
+                var docRef = db.Collection(col).Document("_init");
+                var snap = await docRef.GetSnapshotAsync();
 
-                    await docRef.SetAsync(initData, cancellationToken: ct);
-                    _logger.LogInformation("Coleção {Collection} inicializada para ClientId {ClientId}.", col, clientId);
+                if (!snap.Exists)
+                {
+                    await docRef.SetAsync(new {
+                        createdAt = DateTime.UtcNow,
+                        system = "Felter E-Commerce"
+                    });
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro ao inicializar coleção {Collection} para ClientId {ClientId}.", col, clientId);
+                _logger.LogError(ex, "Erro criando coleção {Collection} para clientId {ClientId}", col, clientId);
             }
         }
     }
 
-    /// <summary>
-    /// Helper genérico para gravar (criar/atualizar) um documento no Firestore do cliente.
-    /// Pode ser usado, por exemplo, para produtos, usuários, agendamentos etc.
-    /// </summary>
-    public async Task<bool> UpsertDocumentAsync(
-        Guid clientId,
-        string collectionName,
-        string documentId,
-        IDictionary<string, object> data,
-        CancellationToken ct = default)
+    /// 🔥 Upsert protegido
+    public async Task<bool> UpsertDocumentAsync(Guid clientId, string collection, string docId, IDictionary<string, object> data)
     {
-        var db = await GetFirestoreForClientAsync(clientId, ct);
-        if (db == null) return false;
+        var db = await GetFirestoreForClientAsync(clientId);
+        if (db == null)
+            return false;
 
         try
         {
-            var docRef = db.Collection(collectionName).Document(documentId);
-            await docRef.SetAsync(data, cancellationToken: ct);
-            _logger.LogInformation("Documento {DocumentId} salvo em {Collection} para ClientId {ClientId}.", documentId, collectionName, clientId);
+            await db.Collection(collection).Document(docId).SetAsync(data);
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Erro ao salvar documento {DocumentId} em {Collection} para ClientId {ClientId}.", documentId, collectionName, clientId);
+            _logger.LogError(ex, "Erro ao salvar documento {Doc} em {Col} para {ClientId}", docId, collection, clientId);
             return false;
         }
     }
 
-    /// <summary>
-    /// Helper para buscar todos os documentos de uma coleção do cliente (sem filtros).
-    /// Pode ser melhorado depois com filtros, paginação etc.
-    /// </summary>
-    public async Task<IReadOnlyList<Dictionary<string, object>>> GetAllDocumentsAsync(
-        Guid clientId,
-        string collectionName,
-        CancellationToken ct = default)
+    /// 🔥 Leitura protegida
+    public async Task<IReadOnlyList<Dictionary<string, object>>> GetAllDocumentsAsync(Guid clientId, string collection)
     {
-        var db = await GetFirestoreForClientAsync(clientId, ct);
-        if (db == null) return Array.Empty<Dictionary<string, object>>();
+        var db = await GetFirestoreForClientAsync(clientId);
+        if (db == null)
+            return Array.Empty<Dictionary<string, object>>();
 
         try
         {
-            var query = db.Collection(collectionName);
-            var snapshot = await query.GetSnapshotAsync(ct);
-
-            var list = new List<Dictionary<string, object>>();
-
-            foreach (var doc in snapshot.Documents)
+            var snap = await db.Collection(collection).GetSnapshotAsync();
+            return snap.Documents.Select(d =>
             {
-                var dict = doc.ToDictionary();
-                dict["__id"] = doc.Id;
-                list.Add(dict);
-            }
-
-            _logger.LogInformation("Carregados {Count} documentos de {Collection} para ClientId {ClientId}.", list.Count, collectionName, clientId);
-            return list;
+                var dict = d.ToDictionary();
+                dict["__id"] = d.Id;
+                return dict;
+            }).ToList();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Erro ao carregar documentos de {Collection} para ClientId {ClientId}.", collectionName, clientId);
+            _logger.LogError(ex, "Erro lendo {Collection} para {ClientId}", collection, clientId);
             return Array.Empty<Dictionary<string, object>>();
         }
     }
