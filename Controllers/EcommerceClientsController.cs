@@ -180,14 +180,15 @@ public class EcommerceClientsController : ControllerBase
                 measurementId = request.FirebaseMeasurementId
             };
 
-            var dbConfig = new EcommerceDbConfig
-            {
-                Id = Guid.NewGuid(),
-                ClientId = clientId,
-                FirebaseJson = JsonSerializer.Serialize(firebaseJsonObj),
-                Status = "active",
-                CreatedAt = now
-            };
+           var dbConfig = new EcommerceDbConfig
+{
+    Id = Guid.NewGuid(),
+    ClientId = clientId,
+    FirebaseJson = JsonDocument.Parse(JsonSerializer.Serialize(firebaseJsonObj)),
+    Status = "active",
+    CreatedAt = now
+};
+
 
             // Salvar no banco
             _ctx.EcommerceClients.Add(client);

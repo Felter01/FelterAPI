@@ -133,7 +133,8 @@ public class EcommerceDbConfig
     public Guid ClientId { get; set; }
 
     [Column("firebase_json")]
-    public string? FirebaseJson { get; set; }
+    public JsonDocument? FirebaseJson { get; set; }
+
 
     [Column("status")]
     public string? Status { get; set; }
