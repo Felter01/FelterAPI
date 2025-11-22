@@ -8,6 +8,17 @@ using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ---------------- CORS ----------------
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
+
 // ---------------- Connection String ----------------
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
@@ -80,7 +91,24 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-// ------------- Proteção básica do Swagger (Basic Auth) -------------
+// ---------------- Aplicar CORS (muito importante) ----------------
+app.UseCors("AllowAll");
+
+// ------------- Responder OPTIONS (resolver 405 do preflight) -------------
+app.Use(async (context, next) =>
+{
+    if (context.Request.Method == "OPTIONS")
+    {
+        context.Response.Headers.Add("Access-Control-Allow-Origin", "*");
+        context.Response.Headers.Add("Access-Control-Allow-Headers", "*");
+        context.Response.Headers.Add("Access-Control-Allow-Methods", "*");
+        context.Response.StatusCode = 200;
+        return;
+    }
+    await next();
+});
+
+// ------------- Proteção básica do Swagger -------------
 app.Use(async (context, next) =>
 {
     if (context.Request.Path.StartsWithSegments("/swagger"))
@@ -95,7 +123,6 @@ app.Use(async (context, next) =>
             var username = parts[0];
             var password = parts.Length > 1 ? parts[1] : string.Empty;
 
-            // LOGIN FIXO do Swagger (só pra proteger a UI)
             if (username == "dev.feltertechnology@gmail.com" && password == "#MjlEgdc123451958#")
             {
                 await next();
@@ -117,12 +144,11 @@ app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "Felter Ecosystem v1");
-    c.RoutePrefix = string.Empty; // Swagger na raiz
+    c.RoutePrefix = string.Empty;
 });
 
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-
 app.Run();
