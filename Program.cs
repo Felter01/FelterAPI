@@ -26,6 +26,9 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddDbContext<FelterContext>(options =>
     options.UseNpgsql(connectionString));
 
+// DB bootstrap (create schemas/extensions if missing)
+builder.Services.AddSingleton<DatabaseBootstrapper>();
+
 builder.Services.AddScoped<FirebaseDynamicService>();
 
 // ---------------- Controllers + Swagger ----------------
@@ -89,6 +92,15 @@ builder.Services
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+
+// Ensure required schemas/extensions exist (safe no-op if already present)
+using (var scope = app.Services.CreateScope())
+using Microsoft.Extensions.DependencyInjection;
+{
+    var bootstrapper = scope.ServiceProvider.GetRequiredService<DatabaseBootstrapper>();
+    await bootstrapper.EnsureSchemasAndExtensionsAsync();
+}
+
 
 // ---------------- OPTIONS (antes de tudo) ----------------
 app.Use(async (context, next) =>
