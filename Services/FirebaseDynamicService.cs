@@ -1,6 +1,7 @@
 
 using FelterAPI.Data;
 using FelterAPI.Models;
+using System.Text.Json;
 using Google.Apis.Auth.OAuth2;
 using Google.Cloud.Firestore;
 using Google.Cloud.Firestore.V1;
@@ -71,11 +72,11 @@ public class FirebaseDynamicService
 
             GoogleCredential credential;
 
-            if (!string.IsNullOrWhiteSpace(cfg.FirebaseJson))
+            if (cfg.FirebaseJson != null)
             {
                 try
                 {
-                    credential = GoogleCredential.FromJson(cfg.FirebaseJson);
+                    credential = GoogleCredential.FromJson(cfg.FirebaseJson.RootElement.GetRawText());
                 }
                 catch (Exception ex)
                 {
