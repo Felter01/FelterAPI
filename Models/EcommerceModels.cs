@@ -88,8 +88,8 @@ public class EcommerceUser
     [Column("role")]
     public string? Role { get; set; }
 
-    [Column("permissions")]
-    public string? Permissions { get; set; }
+    [Column("permissions", TypeName="jsonb")]
+    public Dictionary<string, object>? Permissions { get; set; }
 
     [Column("is_active")]
     public bool IsActive { get; set; } = true;
