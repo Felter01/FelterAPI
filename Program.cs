@@ -19,46 +19,6 @@ builder.Services.AddCors(options =>
     });
 });
 
-// ---------------- resto do builder (Swagger, JWT, DB etc.) ----------------
-// ... (deixe tudo igual ao seu)
-
-var app = builder.Build();
-
-// ---------------- OPTIONS antes de tudo ----------------
-app.Use(async (context, next) =>
-{
-    if (context.Request.Method == "OPTIONS")
-    {
-        context.Response.Headers.Add("Access-Control-Allow-Origin", "*");
-        context.Response.Headers.Add("Access-Control-Allow-Headers", "*");
-        context.Response.Headers.Add("Access-Control-Allow-Methods", "*");
-        context.Response.StatusCode = 200;
-        return;
-    }
-    await next();
-});
-
-// ---------------- CORS ANTES DE TUDO ----------------
-app.UseCors("AllowAll");
-
-// ---------------- Swagger ----------------
-app.UseSwagger();
-app.UseSwaggerUI(c =>
-{
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Felter Ecosystem v1");
-    c.RoutePrefix = string.Empty;
-});
-
-// ---------------- Auth ----------------
-app.UseAuthentication();
-app.UseAuthorization();
-
-// ---------------- Controllers ----------------
-app.MapControllers();
-
-app.Run();
-
-
 // ---------------- Connection String ----------------
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
@@ -81,7 +41,6 @@ builder.Services.AddSwaggerGen(c =>
         Description = "Master + Clientes (StockFlow, InfoWork, OmniFlow, LFChat, E-commerce)"
     });
 
-    // Botão Authorize global (Bearer)
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Description = "Autenticação JWT. Exemplo: Bearer {token}",
@@ -131,24 +90,25 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-// ---------------- Aplicar CORS (muito importante) ----------------
-app.UseCors("AllowAll");
-
-// ------------- Responder OPTIONS (resolver 405 do preflight) -------------
+// ---------------- OPTIONS (antes de tudo) ----------------
 app.Use(async (context, next) =>
 {
     if (context.Request.Method == "OPTIONS")
     {
-        context.Response.Headers.Add("Access-Control-Allow-Origin", "*");
-        context.Response.Headers.Add("Access-Control-Allow-Headers", "*");
-        context.Response.Headers.Add("Access-Control-Allow-Methods", "*");
+        context.Response.Headers.Append("Access-Control-Allow-Origin", "*");
+        context.Response.Headers.Append("Access-Control-Allow-Headers", "*");
+        context.Response.Headers.Append("Access-Control-Allow-Methods", "*");
         context.Response.StatusCode = 200;
         return;
     }
+
     await next();
 });
 
-// ------------- Proteção básica do Swagger -------------
+// ---------------- CORS (antes de Auth, Swagger e Controllers) ----------------
+app.UseCors("AllowAll");
+
+// ---------------- Proteção básica do Swagger ----------------
 app.Use(async (context, next) =>
 {
     if (context.Request.Path.StartsWithSegments("/swagger"))
@@ -179,7 +139,7 @@ app.Use(async (context, next) =>
     await next();
 });
 
-// ------------- Middleware padrão -------------
+// ---------------- Swagger ----------------
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
@@ -187,8 +147,11 @@ app.UseSwaggerUI(c =>
     c.RoutePrefix = string.Empty;
 });
 
+// ---------------- Auth ----------------
 app.UseAuthentication();
 app.UseAuthorization();
 
+// ---------------- Controllers ----------------
 app.MapControllers();
+
 app.Run();
