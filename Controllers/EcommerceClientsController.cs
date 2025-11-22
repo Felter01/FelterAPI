@@ -136,7 +136,7 @@ public class EcommerceClientsController : ControllerBase
                 Name = "Administrador",
                 Email = request.AdminEmail,
                 Role = "admin",
-                Permissions = "all",
+                Permissions = new Dictionary<string, object>{{"role","admin"}},
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.AdminPassword),
                 IsActive = true,
                 CreatedAt = now
