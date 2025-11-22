@@ -19,6 +19,46 @@ builder.Services.AddCors(options =>
     });
 });
 
+// ---------------- resto do builder (Swagger, JWT, DB etc.) ----------------
+// ... (deixe tudo igual ao seu)
+
+var app = builder.Build();
+
+// ---------------- OPTIONS antes de tudo ----------------
+app.Use(async (context, next) =>
+{
+    if (context.Request.Method == "OPTIONS")
+    {
+        context.Response.Headers.Add("Access-Control-Allow-Origin", "*");
+        context.Response.Headers.Add("Access-Control-Allow-Headers", "*");
+        context.Response.Headers.Add("Access-Control-Allow-Methods", "*");
+        context.Response.StatusCode = 200;
+        return;
+    }
+    await next();
+});
+
+// ---------------- CORS ANTES DE TUDO ----------------
+app.UseCors("AllowAll");
+
+// ---------------- Swagger ----------------
+app.UseSwagger();
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Felter Ecosystem v1");
+    c.RoutePrefix = string.Empty;
+});
+
+// ---------------- Auth ----------------
+app.UseAuthentication();
+app.UseAuthorization();
+
+// ---------------- Controllers ----------------
+app.MapControllers();
+
+app.Run();
+
+
 // ---------------- Connection String ----------------
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
