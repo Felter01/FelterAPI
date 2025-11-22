@@ -136,7 +136,7 @@ public class EcommerceClientsController : ControllerBase
                 Name = "Administrador",
                 Email = request.AdminEmail,
                 Role = "admin",
-                Permissions = JsonDocument.Parse("{\"all\": true}"),
+                Permissions = "all",
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.AdminPassword),
                 IsActive = true,
                 CreatedAt = now

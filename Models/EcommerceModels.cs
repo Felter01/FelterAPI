@@ -89,8 +89,7 @@ public class EcommerceUser
     public string? Role { get; set; }
 
     [Column("permissions")]
-public JsonDocument? Permissions { get; set; }
-
+    public string? Permissions { get; set; }
 
     [Column("is_active")]
     public bool IsActive { get; set; } = true;
