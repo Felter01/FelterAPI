@@ -9,20 +9,21 @@ namespace FelterAPI.Controllers;
 
 [ApiController]
 [Route("api/ecommerce/clients")]
-[Authorize]
+[Authorize] // pode remover se quiser liberar publicamente
 public class EcommerceClientsController : ControllerBase
 {
     private readonly FelterContext _ctx;
+    private readonly ILogger<EcommerceClientsController> _logger;
 
-    public EcommerceClientsController(FelterContext ctx)
+    public EcommerceClientsController(FelterContext ctx, ILogger<EcommerceClientsController> logger)
     {
         _ctx = ctx;
+        _logger = logger;
     }
 
-    // DTO usado na criação completa de um cliente E-commerce
+    // DTO de criação
     public class EcommerceCreateClientRequest
     {
-        // Informações do Cliente
         public string CompanyName { get; set; } = string.Empty;
         public string? TradeName { get; set; }
         public string? Cnpj { get; set; }
@@ -33,7 +34,6 @@ public class EcommerceClientsController : ControllerBase
         public string Slug { get; set; } = string.Empty;
         public string? CustomUrl { get; set; }
 
-        // Módulos
         public bool EnableProdutos { get; set; }
         public bool EnableCardapio { get; set; }
         public bool EnableBlog { get; set; }
@@ -43,7 +43,6 @@ public class EcommerceClientsController : ControllerBase
         public bool EnableAgendamentos { get; set; }
         public bool EnableWhatsapp { get; set; }
 
-        // Firebase
         public string FirebaseApiKey { get; set; } = string.Empty;
         public string FirebaseAuthDomain { get; set; } = string.Empty;
         public string FirebaseProjectId { get; set; } = string.Empty;
@@ -54,9 +53,9 @@ public class EcommerceClientsController : ControllerBase
         public string? FirebaseServiceAccountJson { get; set; }
     }
 
-    // GET: api/ecommerce/clients
+    // GET
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<EcommerceClient>>> GetAll()
+    public async Task<ActionResult> GetAll()
     {
         var list = await _ctx.EcommerceClients
             .AsNoTracking()
@@ -66,162 +65,158 @@ public class EcommerceClientsController : ControllerBase
         return Ok(list);
     }
 
-    // GET: api/ecommerce/clients/{id}
+    // GET by ID
     [HttpGet("{id:guid}")]
-    public async Task<ActionResult<EcommerceClient>> GetById(Guid id)
+    public async Task<ActionResult> GetById(Guid id)
     {
-        var client = await _ctx.EcommerceClients
-            .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.Id == id);
-
+        var client = await _ctx.EcommerceClients.AsNoTracking().FirstOrDefaultAsync(c => c.Id == id);
         if (client == null) return NotFound();
+
         return Ok(client);
     }
 
-    // POST simples (caso queira só criar registro manualmente)
-    [HttpPost]
-    public async Task<ActionResult<EcommerceClient>> CreateSimple(EcommerceClient client)
-    {
-        client.Id = client.Id == Guid.Empty ? Guid.NewGuid() : client.Id;
-        client.CreatedAt = client.CreatedAt == default ? DateTime.UtcNow : client.CreatedAt;
-
-        _ctx.EcommerceClients.Add(client);
-        await _ctx.SaveChangesAsync();
-
-        return CreatedAtAction(nameof(GetById), new { id = client.Id }, client);
-    }
-
-    // POST completo: cria cliente + admin + módulos + db_config
+    // POST COMPLETO
     [HttpPost("create-client")]
     public async Task<ActionResult> CreateClient([FromBody] EcommerceCreateClientRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.CompanyName) ||
-            string.IsNullOrWhiteSpace(request.AdminEmail) ||
-            string.IsNullOrWhiteSpace(request.AdminPassword) ||
-            string.IsNullOrWhiteSpace(request.Slug))
+        try
         {
-            return BadRequest("Nome da empresa, email do administrador, senha inicial e slug são obrigatórios.");
-        }
+            // Validação inicial
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
 
-        // Verifica se já existe cliente com o mesmo slug
-        var slugExists = await _ctx.EcommerceClients
-            .AsNoTracking()
-            .AnyAsync(c => c.Slug == request.Slug);
-        if (slugExists)
-            return Conflict("Já existe um cliente com esse slug.");
+            if (string.IsNullOrWhiteSpace(request.CompanyName) ||
+                string.IsNullOrWhiteSpace(request.AdminEmail) ||
+                string.IsNullOrWhiteSpace(request.AdminPassword) ||
+                string.IsNullOrWhiteSpace(request.Slug))
+            {
+                return BadRequest(new { error = "CompanyName, AdminEmail, AdminPassword e Slug são obrigatórios." });
+            }
 
-        // Verifica se já existe usuário com o mesmo email
-        var userExists = await _ctx.EcommerceUsers
-            .AsNoTracking()
-            .AnyAsync(u => u.Email == request.AdminEmail);
-        if (userExists)
-            return Conflict("Já existe um usuário com esse email.");
+            // Slug duplicado
+            if (await _ctx.EcommerceClients.AsNoTracking().AnyAsync(c => c.Slug == request.Slug))
+                return Conflict(new { error = "Slug já está em uso." });
 
-        var now = DateTime.UtcNow;
-        var clientId = Guid.NewGuid();
+            // Email duplicado
+            if (await _ctx.EcommerceUsers.AsNoTracking().AnyAsync(u => u.Email == request.AdminEmail))
+                return Conflict(new { error = "Já existe um usuário com este email." });
 
-        var client = new EcommerceClient
-        {
-            Id = clientId,
-            MasterId = null, // pode ser preenchido depois com o usuário master logado
-            Name = request.CompanyName,
-            Email = request.AdminEmail,
-            Plan = string.IsNullOrWhiteSpace(request.Plan) ? "basic" : request.Plan,
-            TradeName = request.TradeName,
-            Cnpj = request.Cnpj,
-            Phone = request.Phone,
-            Slug = request.Slug,
-            CustomUrl = request.CustomUrl,
-            FirebaseApiKey = request.FirebaseApiKey,
-            FirebaseAuthDomain = request.FirebaseAuthDomain,
-            FirebaseProjectId = request.FirebaseProjectId,
-            FirebaseStorageBucket = request.FirebaseStorageBucket,
-            FirebaseSenderId = request.FirebaseSenderId,
-            FirebaseAppId = request.FirebaseAppId,
-            FirebaseMeasurementId = request.FirebaseMeasurementId,
-            FirebaseServiceAccountJson = request.FirebaseServiceAccountJson,
-            CreatedAt = now
-        };
+            var now = DateTime.UtcNow;
+            var clientId = Guid.NewGuid();
 
-        var adminUser = new EcommerceUser
-        {
-            Id = Guid.NewGuid(),
-            ClientId = clientId,
-            Name = "Administrador",
-            Email = request.AdminEmail,
-            Role = "admin",
-            Permissions = "all",
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.AdminPassword),
-            IsActive = true,
-            CreatedAt = now
-        };
+            // Monta o cliente
+            var client = new EcommerceClient
+            {
+                Id = clientId,
+                MasterId = null,
+                Name = request.CompanyName,
+                Email = request.AdminEmail,
+                Plan = string.IsNullOrWhiteSpace(request.Plan) ? "basic" : request.Plan,
+                TradeName = request.TradeName,
+                Cnpj = request.Cnpj,
+                Phone = request.Phone,
+                Slug = request.Slug,
+                CustomUrl = request.CustomUrl,
+                FirebaseApiKey = request.FirebaseApiKey,
+                FirebaseAuthDomain = request.FirebaseAuthDomain,
+                FirebaseProjectId = request.FirebaseProjectId,
+                FirebaseStorageBucket = request.FirebaseStorageBucket,
+                FirebaseSenderId = request.FirebaseSenderId,
+                FirebaseAppId = request.FirebaseAppId,
+                FirebaseMeasurementId = request.FirebaseMeasurementId,
+                FirebaseServiceAccountJson = request.FirebaseServiceAccountJson,
+                CreatedAt = now
+            };
 
-        var modules = new List<EcommerceModule>();
-
-        void AddModule(string key, string name, bool enabled)
-        {
-            if (!enabled) return;
-
-            modules.Add(new EcommerceModule
+            // Admin user
+            var adminUser = new EcommerceUser
             {
                 Id = Guid.NewGuid(),
                 ClientId = clientId,
-                Key = key,
-                Name = name,
-                IsEnabled = true,
+                Name = "Administrador",
+                Email = request.AdminEmail,
+                Role = "admin",
+                Permissions = "all",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.AdminPassword),
+                IsActive = true,
                 CreatedAt = now
+            };
+
+            // Módulos
+            var modules = new List<EcommerceModule>();
+            void AddModule(string key, string name, bool enabled)
+            {
+                if (!enabled) return;
+
+                modules.Add(new EcommerceModule
+                {
+                    Id = Guid.NewGuid(),
+                    ClientId = clientId,
+                    Key = key,
+                    Name = name,
+                    IsEnabled = true,
+                    CreatedAt = now
+                });
+            }
+
+            AddModule("produtos", "Produtos", request.EnableProdutos);
+            AddModule("cardapio", "Cardápio Online", request.EnableCardapio);
+            AddModule("blog", "Blog", request.EnableBlog);
+            AddModule("videos", "Vídeos", request.EnableVideos);
+            AddModule("usuarios", "Usuários", request.EnableUsuarios);
+            AddModule("configuracoes", "Configurações", request.EnableConfiguracoes);
+            AddModule("agendamentos", "Agendamentos", request.EnableAgendamentos);
+            AddModule("whatsapp", "WhatsApp", request.EnableWhatsapp);
+
+            // Firebase JSON
+            var firebaseJsonObj = new
+            {
+                apiKey = request.FirebaseApiKey,
+                authDomain = request.FirebaseAuthDomain,
+                projectId = request.FirebaseProjectId,
+                storageBucket = request.FirebaseStorageBucket,
+                messagingSenderId = request.FirebaseSenderId,
+                appId = request.FirebaseAppId,
+                measurementId = request.FirebaseMeasurementId
+            };
+
+            var dbConfig = new EcommerceDbConfig
+            {
+                Id = Guid.NewGuid(),
+                ClientId = clientId,
+                FirebaseJson = JsonSerializer.Serialize(firebaseJsonObj),
+                Status = "active",
+                CreatedAt = now
+            };
+
+            // Salvar no banco
+            _ctx.EcommerceClients.Add(client);
+            _ctx.EcommerceUsers.Add(adminUser);
+            if (modules.Count > 0)
+                _ctx.EcommerceModules.AddRange(modules);
+            _ctx.EcommerceDbConfigs.Add(dbConfig);
+
+            await _ctx.SaveChangesAsync();
+
+            return Ok(new
+            {
+                message = "Cliente criado com sucesso!",
+                clientId = client.Id,
+                client.Name,
+                client.Email,
+                client.Slug
             });
         }
-
-        AddModule("produtos",      "Produtos",           request.EnableProdutos);
-        AddModule("cardapio",      "Cardápio Online",    request.EnableCardapio);
-        AddModule("blog",          "Blog",               request.EnableBlog);
-        AddModule("videos",        "Vídeos",             request.EnableVideos);
-        AddModule("usuarios",      "Usuários",           request.EnableUsuarios);
-        AddModule("configuracoes", "Configurações",      request.EnableConfiguracoes);
-        AddModule("agendamentos",  "Agendamentos",       request.EnableAgendamentos);
-        AddModule("whatsapp",      "WhatsApp",           request.EnableWhatsapp);
-
-        var firebaseJsonObj = new
+        catch (Exception ex)
         {
-            apiKey = request.FirebaseApiKey,
-            authDomain = request.FirebaseAuthDomain,
-            projectId = request.FirebaseProjectId,
-            storageBucket = request.FirebaseStorageBucket,
-            messagingSenderId = request.FirebaseSenderId,
-            appId = request.FirebaseAppId,
-            measurementId = request.FirebaseMeasurementId
-        };
-
-        var dbConfig = new EcommerceDbConfig
-        {
-            Id = Guid.NewGuid(),
-            ClientId = clientId,
-            FirebaseJson = JsonSerializer.Serialize(firebaseJsonObj),
-            Status = "active",
-            CreatedAt = now
-        };
-
-        _ctx.EcommerceClients.Add(client);
-        _ctx.EcommerceUsers.Add(adminUser);
-        if (modules.Count > 0)
-            _ctx.EcommerceModules.AddRange(modules);
-        _ctx.EcommerceDbConfigs.Add(dbConfig);
-
-        await _ctx.SaveChangesAsync();
-
-        return CreatedAtAction(nameof(GetById), new { id = clientId }, new
-        {
-            client.Id,
-            client.Name,
-            client.Email,
-            client.Slug
-        });
+            _logger.LogError(ex, "Erro ao criar cliente.");
+            return StatusCode(500, new { error = "Erro interno ao criar cliente.", details = ex.Message });
+        }
     }
 
-    // PUT: api/ecommerce/clients/{id}
+    // UPDATE
     [HttpPut("{id:guid}")]
-    public async Task<IActionResult> Update(Guid id, EcommerceClient input)
+    public async Task<ActionResult> Update(Guid id, EcommerceClient input)
     {
         var existing = await _ctx.EcommerceClients.FindAsync(id);
         if (existing == null) return NotFound();
@@ -247,15 +242,16 @@ public class EcommerceClientsController : ControllerBase
         return Ok(existing);
     }
 
-    // DELETE: api/ecommerce/clients/{id}
+    // DELETE
     [HttpDelete("{id:guid}")]
-    public async Task<IActionResult> Delete(Guid id)
+    public async Task<ActionResult> Delete(Guid id)
     {
         var existing = await _ctx.EcommerceClients.FindAsync(id);
         if (existing == null) return NotFound();
 
         _ctx.EcommerceClients.Remove(existing);
         await _ctx.SaveChangesAsync();
+
         return NoContent();
     }
 }
