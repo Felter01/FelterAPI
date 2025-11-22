@@ -1,11 +1,11 @@
+using System;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json;
 
 namespace FelterAPI.Models;
 
 // ==========================
 // ECOMMERCE - PADRÃO SNAKE_CASE
-// Tabelas no schema ecommerce_felter:
-// clients, users, modules, db_config
 // ==========================
 
 public class EcommerceClient
@@ -112,11 +112,10 @@ public class EcommerceModule
     [Column("name")]
     public string? Name { get; set; }
 
-    // Mantemos apenas a coluna oficial
     [Column("is_enabled")]
     public bool IsEnabled { get; set; } = true;
 
-    // Campo legado, não mapeado
+    // Campo legado não usado pelo banco
     [NotMapped]
     public bool Enabled { get; set; } = true;
 
@@ -132,9 +131,9 @@ public class EcommerceDbConfig
     [Column("client_id")]
     public Guid ClientId { get; set; }
 
-    [Column("firebase_json")]
+    // JsonDocument funciona perfeito com JSONB no PostgreSQL
+    [Column("firebase_json", TypeName = "jsonb")]
     public JsonDocument? FirebaseJson { get; set; }
-
 
     [Column("status")]
     public string? Status { get; set; }
